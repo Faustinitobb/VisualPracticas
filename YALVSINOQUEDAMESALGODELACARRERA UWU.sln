@@ -1,25 +1,293 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.3.32901.215
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "YALVSINOQUEDAMESALGODELACARRERA UWU", "YALVSINOQUEDAMESALGODELACARRERA UWU.vbproj", "{B2EFA8EE-6B88-4CDF-AEFB-C556A4124916}"
-EndProject
-Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B2EFA8EE-6B88-4CDF-AEFB-C556A4124916}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B2EFA8EE-6B88-4CDF-AEFB-C556A4124916}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B2EFA8EE-6B88-4CDF-AEFB-C556A4124916}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B2EFA8EE-6B88-4CDF-AEFB-C556A4124916}.Release|Any CPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {7CE4D60A-5CC1-4C9A-A668-F90D61E3ADE1}
-	EndGlobalSection
-EndGlobal
+Imports System.IO
+Imports Microsoft.Office.Interop
+Imports Microsoft.Office.Interop.Excel
+
+Public Class Form1
+    Dim listaAlumnos As New List(Of Alumno)
+    Dim control_escolar As New Control_Escolar
+    Dim filePath As String = "C:\Users\Asus\OneDrive\Escritorio\Libro contable registro Rodri.xlsx"
+
+    Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        CargarRegistros()
+    End Sub
+
+    Private Sub CargarRegistros()
+        If File.Exists(filePath) Then
+            Try
+                Dim excelApp As New Microsoft.Office.Interop.Excel.Application
+                Dim workbook As Microsoft.Office.Interop.Excel.Workbook = excelApp.Workbooks.Open(filePath)
+                Dim worksheet As Microsoft.Office.Interop.Excel.Worksheet = workbook.Sheets(1)
+
+                Dim rowIndex As Integer = 1
+                Dim currentRow As Microsoft.Office.Interop.Excel.Range = Nothing
+
+                Do
+                    currentRow = worksheet.Rows(rowIndex)
+
+                    ' Verificar si la celda A de la fila actual está vacía (indicando el final de los datos)
+                    If currentRow.Cells(1).Value IsNot Nothing Then
+                        ' Leer los datos de la fila actual y agregarlos al DataGridView
+                        Dim nuevoAlumno As New Alumno With {
+                            .Nombre = currentRow.Cells(1).Value.ToString(),
+                            .Domicilio = currentRow.Cells(2).Value.ToString(),
+                            .Telefono = currentRow.Cells(3).Value.ToString(),
+                            .Plantel = currentRow.Cells(4).Value.ToString(),
+                            .Modalidad = currentRow.Cells(5).Value.ToString(),
+                            .YearIngreso = currentRow.Cells(6).Value.ToString(),
+                            .Folio = currentRow.Cells(7).Value.ToString(),
+                            .Edificio = currentRow.Cells(8).Value.ToString(),
+                            .Encargado = currentRow.Cells(9).Value.ToString()
+                        }
+                        listaAlumnos.Add(nuevoAlumno)
+
+                        Dim NC As String = control_escolar.GenerarNC(nuevoAlumno.Plantel, nuevoAlumno.Modalidad, nuevoAlumno.YearIngreso, nuevoAlumno.Folio)
+                        DataGridView1.Rows.Add(nuevoAlumno.Nombre, nuevoAlumno.Domicilio, nuevoAlumno.Telefono, nuevoAlumno.Plantel, nuevoAlumno.Modalidad, nuevoAlumno.YearIngreso, nuevoAlumno.Folio, nuevoAlumno.Edificio, nuevoAlumno.Encargado, NC)
+
+                        rowIndex += 1 ' Moverse a la siguiente fila
+                    Else
+                        Exit Do ' Salir del bucle si la celda A está vacía
+                    End If
+                Loop
+
+                workbook.Close()
+                excelApp.Quit()
+                ReleaseObject(worksheet)
+                ReleaseObject(workbook)
+                ReleaseObject(excelApp)
+
+                ' Ordenar la lista de alumnos por nombre alfabéticamente
+                listaAlumnos.Sort(Function(x, y) x.Nombre.CompareTo(y.Nombre))
+
+                ' Mostrar los alumnos ordenados en el DataGridView
+                MostrarAlumnosEnDataGridView()
+
+            Catch ex As Exception
+                MsgBox("Error al cargar los registros: " & ex.Message)
+            End Try
+        End If
+    End Sub
+
+    Private Sub MostrarAlumnosEnDataGridView()
+        DataGridView1.Rows.Clear()
+        For Each alumno As Alumno In listaAlumnos
+            DataGridView1.Rows.Add(alumno.Nombre, alumno.Domicilio, alumno.Telefono, alumno.Plantel, alumno.Modalidad, alumno.YearIngreso, alumno.Folio, alumno.Edificio, alumno.Encargado)
+        Next
+    End Sub
+
+    Private Sub ReleaseObject(ByVal obj As Object)
+        Try
+            System.Runtime.InteropServices.Marshal.ReleaseComObject(obj)
+            obj = Nothing
+        Catch ex As Exception
+            obj = Nothing
+        Finally
+            GC.Collect()
+        End Try
+    End Sub
+
+    Private Sub DataGridView1_SelectionChanged(sender As Object, e As EventArgs) Handles DataGridView1.SelectionChanged
+        If DataGridView1.SelectedRows.Count > 0 Then
+            Dim rowIndex As Integer = DataGridView1.SelectedRows(0).Index
+            Dim alumnoSeleccionado As Alumno = listaAlumnos(rowIndex)
+
+
+            TxtMostrarNumeroControl.Text = control_escolar.GenerarNC(alumnoSeleccionado.Plantel, alumnoSeleccionado.Modalidad, alumnoSeleccionado.YearIngreso, alumnoSeleccionado.Folio)
+
+
+            TxtNombre.Text = alumnoSeleccionado.Nombre
+            TxtDomicilio.Text = alumnoSeleccionado.Domicilio
+            TxtTelefono.Text = alumnoSeleccionado.Telefono
+            TxtPlantel.Text = alumnoSeleccionado.Plantel
+            TxtModalidad.Text = alumnoSeleccionado.Modalidad
+            TxtIngreso.Text = alumnoSeleccionado.YearIngreso
+            TxtFolio.Text = alumnoSeleccionado.Folio
+            TxtEdificio.Text = alumnoSeleccionado.Edificio
+            TxtEncargado.Text = alumnoSeleccionado.Encargado
+        End If
+    End Sub
+
+    Private Function validaciondecampos() As Boolean
+        If TxtNombre.Text = "" OrElse TxtDomicilio.Text = "" OrElse TxtTelefono.Text = "" OrElse
+       TxtPlantel.Text = "" OrElse TxtModalidad.Text = "" OrElse TxtIngreso.Text = "" OrElse
+       TxtFolio.Text = "" OrElse TxtEdificio.Text = "" OrElse TxtEncargado.Text = "" Then
+            MsgBox("Por favor, complete todos los campos.")
+            Return False
+        End If
+        Return True
+    End Function
+
+
+    Private Sub BtnGuardar_Click(sender As Object, e As EventArgs) Handles BtnGuardar.Click
+        If ValidarCampos() Then
+            Dim nuevoAlumno As New Alumno
+
+            nuevoAlumno.Nombre = TxtNombre.Text
+            nuevoAlumno.Domicilio = TxtDomicilio.Text
+            nuevoAlumno.Telefono = TxtTelefono.Text
+            nuevoAlumno.Plantel = TxtPlantel.Text
+            nuevoAlumno.Modalidad = TxtModalidad.Text
+            nuevoAlumno.YearIngreso = TxtIngreso.Text
+            nuevoAlumno.Folio = TxtFolio.Text
+            nuevoAlumno.Edificio = TxtEdificio.Text
+            nuevoAlumno.Encargado = TxtEncargado.Text
+
+            Dim NC As String = control_escolar.GenerarNC(nuevoAlumno.Plantel, nuevoAlumno.Modalidad, nuevoAlumno.YearIngreso, nuevoAlumno.Folio)
+
+            listaAlumnos.Add(nuevoAlumno)
+            listaAlumnos.Sort(Function(x, y) x.Nombre.CompareTo(y.Nombre))
+
+
+            TxtMostrarNumeroControl.Text = NC
+
+            LimpiarCampos()
+
+            MostrarAlumnosEnDataGridView()
+
+
+        End If
+    End Sub
+
+
+    Private Sub BtnModificar_Click(sender As Object, e As EventArgs) Handles BtnModificar.Click
+        If DataGridView1.SelectedRows.Count > 0 Then
+            Dim rowIndex As Integer = DataGridView1.SelectedRows(0).Index
+            Dim alumnoSeleccionado As Alumno = listaAlumnos(rowIndex)
+
+            alumnoSeleccionado.Nombre = TxtNombre.Text
+            alumnoSeleccionado.Domicilio = TxtDomicilio.Text
+            alumnoSeleccionado.Telefono = TxtTelefono.Text
+            alumnoSeleccionado.Plantel = TxtPlantel.Text
+            alumnoSeleccionado.Modalidad = TxtModalidad.Text
+            alumnoSeleccionado.YearIngreso = TxtIngreso.Text
+            alumnoSeleccionado.Folio = TxtFolio.Text
+            alumnoSeleccionado.Edificio = TxtEdificio.Text
+            alumnoSeleccionado.Encargado = TxtEncargado.Text
+
+            MostrarAlumnosEnDataGridView()
+
+            LimpiarCampos()
+
+
+        Else
+            MsgBox("Por favor, seleccione un alumno para modificar.")
+        End If
+    End Sub
+
+    Private Sub BtnEliminar_Click(sender As Object, e As EventArgs) Handles BtnEliminar.Click
+        If DataGridView1.SelectedRows.Count > 0 Then
+            Dim rowIndex As Integer = DataGridView1.SelectedRows(0).Index
+            listaAlumnos.RemoveAt(rowIndex)
+            MostrarAlumnosEnDataGridView()
+            LimpiarCampos()
+
+        Else
+            MsgBox("Por favor, seleccione un alumno para eliminar.")
+        End If
+    End Sub
+
+    Private Sub BtnAgg_Click(sender As Object, e As EventArgs) Handles BtnAgg.Click
+        LimpiarCampos()
+        DataGridView1.ClearSelection()
+
+
+    End Sub
+
+    Private Sub GuardarRegistros()
+        Dim excelApp As New Microsoft.Office.Interop.Excel.Application
+        Dim workbook As Microsoft.Office.Interop.Excel.Workbook = excelApp.Workbooks.Add()
+        Dim worksheet As Microsoft.Office.Interop.Excel.Worksheet = workbook.Sheets(1)
+
+        Try
+            For i As Integer = 0 To listaAlumnos.Count - 1
+                Dim alumno As Alumno = listaAlumnos(i)
+                worksheet.Cells(i + 1, 1).Value = alumno.Nombre
+                worksheet.Cells(i + 1, 2).Value = alumno.Domicilio
+                worksheet.Cells(i + 1, 3).Value = alumno.Telefono
+                worksheet.Cells(i + 1, 4).Value = alumno.Plantel
+                worksheet.Cells(i + 1, 5).Value = alumno.Modalidad
+                worksheet.Cells(i + 1, 6).Value = alumno.YearIngreso
+                worksheet.Cells(i + 1, 7).Value = alumno.Folio
+                worksheet.Cells(i + 1, 8).Value = alumno.Edificio
+                worksheet.Cells(i + 1, 9).Value = alumno.Encargado
+            Next
+
+            excelApp.DisplayAlerts = False
+            workbook.SaveAs(filePath)
+        Catch ex As Exception
+            MsgBox("Error al guardar los registros: " & ex.Message, MsgBoxStyle.Exclamation, "Error de Guardado")
+        Finally
+            workbook.Close()
+            excelApp.Quit()
+            ReleaseObject(worksheet)
+            ReleaseObject(workbook)
+            ReleaseObject(excelApp)
+        End Try
+    End Sub
+
+    Private Sub LimpiarCampos()
+        TxtNombre.Clear()
+        TxtDomicilio.Clear()
+        TxtTelefono.Clear()
+        TxtPlantel.Clear()
+        TxtModalidad.Clear()
+        TxtIngreso.Clear()
+        TxtFolio.Clear()
+        TxtEdificio.Clear()
+        TxtEncargado.Clear()
+    End Sub
+
+
+
+    Private Function ValidarCampos() As Boolean
+        If TxtNombre.Text = "" OrElse TxtDomicilio.Text = "" OrElse TxtTelefono.Text = "" OrElse
+           TxtPlantel.Text = "" OrElse TxtModalidad.Text = "" OrElse TxtIngreso.Text = "" OrElse
+           TxtFolio.Text = "" OrElse TxtEdificio.Text = "" OrElse TxtEncargado.Text = "" Then
+            MsgBox("Por favor, complete todos los campos.")
+            Return False
+        End If
+        Return True
+    End Function
+
+    Private Sub BtnGuardarySalir_Click(sender As Object, e As EventArgs) Handles BtnGuardarySalir.Click
+        GuardarRegistros()
+        MsgBox("Registros guardados exitosamente.", MsgBoxStyle.Information, "Guardado Exitoso")
+        Me.Close()
+    End Sub
+
+    Private Sub Form1_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
+        GuardarRegistros()
+    End Sub
+
+    Private Sub TxtMostrarNumeroControl_TextChanged(sender As Object, e As EventArgs) Handles TxtMostrarNumeroControl.TextChanged
+
+    End Sub
+End Class
+
+
+Public Class Alumno
+    Public Property Nombre As String
+    Public Property Domicilio As String
+    Public Property Telefono As String
+    Public Property Plantel As String
+    Public Property Modalidad As String
+    Public Property YearIngreso As String
+    Public Property Folio As String
+    Public Property Edificio As String
+    Public Property Encargado As String
+End Class
+
+Public Class Control_Escolar
+    Public Function GenerarNC(plantel As String, modalidad As String, yearIngreso As String, folio As String) As String
+        Dim NC As String = ""
+        If plantel.Length > 0 AndAlso modalidad.Length > 0 AndAlso yearIngreso.Length = 4 AndAlso folio.Length > 0 Then
+            NC &= plantel.Substring(0, 1).ToUpper() & modalidad.Substring(0, 1).ToUpper()
+            NC &= yearIngreso.Substring(2, 2)
+            NC &= "11"
+            NC &= folio.PadLeft(4, "0"c)
+        Else
+            MsgBox("Por favor, complete los datos necesarios para generar el número de control.")
+        End If
+        Return NC
+    End Function
+
+End Class
